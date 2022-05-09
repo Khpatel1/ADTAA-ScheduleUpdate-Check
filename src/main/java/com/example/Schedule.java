@@ -1,18 +1,48 @@
 package com.example;
 
+import java.util.Arrays;
+
+import javax.management.relation.RelationTypeSupport;
+
 public class Schedule {
     public int classID;
     public String crn;
     public String courseTitle;
-    public String instructor;
-    public String scheduledTime;
+    public String[] instructors;
+    public String[] scheduledTimes;
 
-    public Schedule(int classID, String crn, String courseTitle, String instructor, String scheduledTime) {
+    public Schedule(int classID, String crn, String courseTitle, String[] instructor, String[] scheduledTime) {
         this.classID = classID;
         this.crn = crn;
         this.courseTitle = courseTitle;
-        this.instructor = instructor;
-        this.scheduledTime = scheduledTime;
+        this.instructors = instructor;
+        this.scheduledTimes = scheduledTime;
+    }
+
+    public void addInstructorAndTime(String instructor, String timeslot) {
+        if (this.instructors != null) {
+            int length = instructors.length;
+            this.instructors = Arrays.copyOf(this.instructors, length + 1);
+            instructors[length] = instructor;
+        } else {
+            this.instructors = new String[] { instructor };
+        }
+
+        if (this.scheduledTimes != null) {
+            int length = scheduledTimes.length;
+            this.scheduledTimes = Arrays.copyOf(this.scheduledTimes, length + 1);
+            scheduledTimes[length] = timeslot;
+        } else {
+            this.scheduledTimes = new String[] { timeslot };
+        }
+    }
+
+    private String insTs() {
+        String str = "";
+        for (int i = 0; i < instructors.length; i++) {
+            str += String.format("%s : %s ; ", instructors[i], scheduledTimes[i]);
+        }
+        return str;
     }
 
     public int getClassID() {
@@ -39,37 +69,27 @@ public class Schedule {
         this.courseTitle = courseTitle;
     }
 
-    public String getInstructor() {
-        return instructor;
+    public String[] getInstructors() {
+        return instructors;
     }
 
-    public void setInstructor(String instructor) {
-        this.instructor = instructor;
+    public void setInstructors(String[] instructor) {
+        this.instructors = instructor;
     }
 
-    public String getScheduledTime() {
-        return scheduledTime;
+    public String[] getScheduledTimes() {
+        return scheduledTimes;
     }
 
-    public void setScheduledTime(String scheduledTime) {
-        this.scheduledTime = scheduledTime;
+    public void setScheduledTimes(String[] scheduledTime) {
+        this.scheduledTimes = scheduledTime;
     }
 
     public void print() {
-        System.out.println(String.format("Id: %d, crn: %s, instructor: %s, time: %s", this.classID, this.crn,
-                this.instructor, this.scheduledTime));
+        System.out.println(String.format("Class ID: %d", classID));
+        System.out.println(String.format("CRN: %s", crn));
+        System.out.println(String.format("Course: %s", courseTitle));
+        System.out.println(insTs() + "\n");
     }
 
 }
-
-/*
- * doc.append("classID", classIndex);
- * doc.append("crn",
- * timetable.getModule(classes[i].getModuleId()).getModuleCode());
- * doc.append("courseTitle",
- * timetable.getModule(classes[i].getModuleId()).getModuleName());
- * doc.append("instructor",
- * timetable.getProfessor(classes[i].getProfessorId()).getProfessorName());
- * doc.append("scheduledTime",
- * timetable.getTimeslot(classes[i].getTimeslotId()).getTimeslot());
- */

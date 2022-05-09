@@ -1,15 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
-
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
-  <groupId>com.example</groupId>
-  <artifactId>demo</artifactId>
-  <version>1.0-SNAPSHOT</version>
+  <groupId>cloudfunctions</groupId>
+  <artifactId>http-function</artifactId>
+  <version>1.0T</version>
+  <packaging>jar</packaging>
 
-  <name>demo</name>
-  <!-- FIXME change it to the project's website -->
-  <url>http://www.example.com</url>
+  <name> UpdateFunction </name>
 
   <properties>
     <maven.compiler.target>11</maven.compiler.target>
@@ -67,17 +65,34 @@
     </dependency>
   </dependencies>
 
+  <!-- Required for Java 11 functions in the inline editor -->
   <build>
+    <finalName>CheckFunction</finalName>
     <plugins>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-compiler-plugin</artifactId>
-        <version>3.8.1</version>
-        <configuration>
-          <excludes>
-            <exclude>.google/</exclude>
-          </excludes>
-        </configuration>
+        <artifactId>maven-shade-plugin</artifactId>
+        <executions>
+          <execution>
+            <phase>package</phase>
+            <goals>
+              <goal>shade</goal>
+            </goals>
+            <configuration>
+              <outputFile>${project.build.directory}/deployment/${project.build.finalName}.jar</outputFile>
+              <transformers>
+                <!-- This may be needed if you need to shade a signed JAR -->
+                <transformer implementation="org.apache.maven.plugins.shade.resource.DontIncludeResourceTransformer">
+                  <resource>.SF</resource>
+                  <resource>.DSA</resource>
+                  <resource>.RSA</resource>
+                </transformer>
+                <!-- This is needed if you have dependencies that use Service Loader. Most Google Cloud client libraries does. -->
+                <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer" />
+              </transformers>
+            </configuration>
+          </execution>
+        </executions>
       </plugin>
     </plugins>
   </build>

@@ -16,6 +16,6 @@ public class DBconnection {
     public static MongoCollection<Document> db_courses = db.getCollection("courses");
     public static MongoCollection<Document> db_schedule = db.getCollection("schedules");
     public static MongoCollection<Document> db_timeslots = db.getCollection("timeslots");
-    public static MongoCollection<Document> db_errors = db.getCollection("errors");
+    public static MongoCollection<Document> db_errors = db.getCollection("collisions");
 
 }

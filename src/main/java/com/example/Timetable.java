@@ -8,8 +8,6 @@ public class Timetable {
     private final HashMap<Integer, Timeslot> timeslots;
     private Class classes[];
 
-    private int numClasses = 0;
-
     /**
      * Initialize new Timetable
      */

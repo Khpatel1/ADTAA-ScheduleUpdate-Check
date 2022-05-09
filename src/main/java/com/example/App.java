@@ -1,5 +1,8 @@
 package com.example;
 
+import com.google.cloud.functions.HttpFunction;
+import com.google.cloud.functions.HttpRequest;
+import com.google.cloud.functions.HttpResponse;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -17,20 +20,23 @@ import org.bson.Document;
  * Hello world!
  *
  */
+// public class App implements HttpFunction {
 public class App {
+    // public void service(HttpRequest request, HttpResponse response) throws
+    // Exception {
     public static void main(String[] args) {
         DBconnection.db_errors.deleteMany(new Document());
         Gson gson = new Gson();
-        ArrayList<Error> errors = initTimetable();
-        for (Error er : errors) {
+        ArrayList<Collision> errors = initTimetable();
+        for (Collision er : errors) {
             String json = gson.toJson(er);
             Document doc = Document.parse(json);
             DBconnection.db_errors.insertOne(doc);
         }
     }
 
-    public static ArrayList<Error> initTimetable() {
-        ArrayList<Error> errors = new ArrayList<Error>();
+    public static ArrayList<Collision> initTimetable() {
+        ArrayList<Collision> errors = new ArrayList<Collision>();
         Course[] courses = getCourseArray();
         Professor[] profs = getInstructorArray();
         Schedule[] schedules = getSchedule();
@@ -61,68 +67,125 @@ public class App {
 
         Class[] classes = scheduleToClass(schedules, modules, profs, timeslots);
 
-        // Algorith to check if table is valid
         HashMap<Integer, Integer> profCounts = new HashMap<Integer, Integer>();
         for (int i = 0; i < profs.length; i++) {
             profCounts.put(profs[i].getProfessorId(), 0);
         }
+        // check if other class with same class id is at the same time
         for (Class classA : classes) {
-            classA.print();
-            // Recount professor assignments
-            int current = profCounts.get(classA.getProfessorId());
-            current++;
-            profCounts.put(classA.getProfessorId(), current);
+            int classAID = classA.getClassId();
+            int classATS = classA.getTimeslotId();
+            int classAMID = classA.getModuleId();
+            for (Class classB : classes) {
+                int classBID = classB.getClassId();
+                int classBTS = classB.getTimeslotId();
+                int classBMID = classB.getModuleId();
 
-            // check times for assigned classes to find overlap
-            for (Class classb : classes) {
-                if (classb.getProfessorId() == classA.getProfessorId() && classA.getClassId() != classb.getClassId()) {
-                    Timeslot ts1 = tb.getTimeslot(classA.getTimeslotId());
-                    int ts2Id = classb.getTimeslotId();
-                    if (ts1.avoid == null && classA.getTimeslotId() != classb.getTimeslotId()) {
-                        break;
-                    } else {
-                        for (int i = 0; i < ts1.avoid.length; i++) {
-                            if (ts1.avoid[i] == ts2Id || classA.getTimeslotId() == classb.getTimeslotId()) {
-                                String errmsg = (String.format("%s %s, on %s clashes with %s %s, on %s",
-                                        tb.getModule(classA.getModuleId()).getModuleCode(),
-                                        tb.getModule(classA.getModuleId()).getModuleName(),
-                                        tb.getTimeslot(classA.getTimeslotId()).getTimeslot(),
-                                        tb.getModule(classb.getModuleId()).getModuleCode(),
-                                        tb.getModule(classb.getModuleId()).getModuleName(),
-                                        tb.getTimeslot(classb.getTimeslotId()).getTimeslot()));
-                                errors.add(new Error(errmsg));
-                                break;
-                            }
+                // check if class a and b are the same
+                if (classAID != classBID) {
+                    // check if both are ref. to same course
+                    if (classAMID == classBMID) {
+                        // if both ref same course check the timeslots
+                        if (classATS == classBTS) {
+                            errors.add(new Collision(
+                                    String.format("%s has 2 sections with overlaping timeslots: %s and %s",
+                                            tb.getModule(classAMID).getModuleCode(), tb.getTimeslot(classATS),
+                                            tb.getTimeslot(classBTS))));
                         }
                     }
                 }
             }
         }
 
-        // check if the professor is within limits
+        // Checking for overlaps in the classes.
+        for (Class classA : classes) {
+            // get current prof assigned to check for overlaps
+            for (Class classb : classes) {
+                if (classb.getProfessorId() == classA.getProfessorId()) {
+                    Timeslot ts1 = tb.getTimeslot(classA.getTimeslotId());
+                    int ts2Id = classb.getTimeslotId();
+                    if (ts1.avoid == null) {
+                        break;
+                    } else {
+                        for (int i = 0; i < ts1.avoid.length; i++) {
+                            if (ts1.avoid[i] == ts2Id) {
+                                errors.add(new Collision(String.format(
+                                        "%s is scheduled to teach 2 classes at overlapping times: %s at %s, and %s at %s",
+                                        tb.getProfessor(classA.getProfessorId()).getProfessorName(),
+                                        tb.getModule(classA.getModuleId()).getModuleCode(),
+                                        tb.getTimeslot(classA.getTimeslotId()).getTimeslot(),
+                                        tb.getModule(classb.getModuleId()).getModuleCode(),
+                                        tb.getTimeslot(classb.getTimeslotId()).getTimeslot())));
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+            int currentProfId = classA.getProfessorId();
+            profCounts.put(currentProfId, profCounts.getOrDefault(currentProfId, 0) + 1);
+
+            for (Class classB : classes) {
+                if (classA.getProfessorId() == classB.getProfessorId()
+                        && classA.getTimeslotId() == classB.getTimeslotId()
+                        && classA.getClassId() != classB.getClassId()) {
+                    errors.add(new Collision(String.format(
+                            "%s is scheduled to teach 2 classes at same time: %s and %S at %s",
+                            tb.getProfessor(classA.getProfessorId()).getProfessorName(),
+                            tb.getModule(classA.getModuleId()).getModuleCode(),
+                            tb.getModule(classB.getModuleId()).getModuleCode(),
+                            tb.getTimeslot(classB.getTimeslotId()).getTimeslot())));
+                    break;
+                }
+            }
+        }
+
         for (int i = 0; i < profs.length; i++) {
             int maxLimit = profs[i].getMaxClasses();
             int currentAssigned = profCounts.get(profs[i].getProfessorId());
+            // System.out.println(String.format("%s, max: %d, assigned: %d",
+            // profs[i].getProfessorName(), maxLimit, currentAssigned )) ;
             if (currentAssigned > maxLimit) {
-                String errmsg = (String.format("%s is assigned for %d and max is %d", profs[i].getProfessorName(),
-                        profs[i].getNumAssigned(), profs[i].maxClasses));
-                errors.add(new Error(errmsg));
+                errors.add(new Collision(String.format("%s has a max of %, but is assigned % classes",
+                        profs[i].getProfessorName(), profs[i].getMaxClasses(), profs[i].getNumAssigned())));
             }
+
+            else if (currentAssigned == 0) {
+                errors.add(new Collision(String.format("%s is not assigned any classes", profs[i].getProfessorName())));
+            }
+
         }
+
         return errors;
+
     }
 
     public static Class[] scheduleToClass(Schedule[] schedules, Module[] modules, Professor[] profs,
             Timeslot[] timeslots) {
-        Class[] classes = new Class[schedules.length];
+        int length = 0;
         for (int i = 0; i < schedules.length; i++) {
-            classes[i] = new Class();
-            classes[i].classId = schedules[i].getClassID();
-            classes[i].moduleId = getModuleIdfromCT(schedules[i].getCrn(), modules);
-            classes[i].addProfessor(findProfId(schedules[i].getInstructor(), profs));
-            classes[i].addTimeslot(findTimeslotId(schedules[i].getScheduledTime(), timeslots));
+            length += schedules[i].getInstructors().length;
+        }
+        System.out.println(length);
+        Class[] classes = new Class[length];
+        int classID = 0;
+        for (int i = 0; i < schedules.length; i++) {
+            for (int j = 0; j < schedules[i].getInstructors().length; j++) {
+                int mID = getModuleIdfromCT(schedules[i].getCrn(), modules);
+                int pID = findProfId(schedules[i].getInstructors()[j], profs);
+                int tsID = findTimeslotId(schedules[i].getScheduledTimes()[j], timeslots);
+                System.out.println(
+                        String.format("ClassID: %d, ModuleID: %d, profID: %d, TSID: %d", classID, mID, pID, tsID));
+                classes[classID] = new Class();
+                classes[classID].classId = classID;
+                classes[classID].moduleId = mID;
+                classes[classID].addProfessor(pID);
+                classes[classID].addTimeslot(tsID);
+                classID++;
+            }
         }
         return classes;
+
     }
 
     public static int findTimeslotId(String ts, Timeslot[] timeslots) {
