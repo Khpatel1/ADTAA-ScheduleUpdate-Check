@@ -7,4 +7,8 @@ public class Collision {
         this.errormsg = er;
     }
 
+    public String getCollision() {
+        return this.errormsg;
+    }
+
 }

@@ -8,12 +8,14 @@ public class Course {
     String courseNumber;
     String courseTitle;
     String[] disciplines;
+    int sections;
 
-    public Course(ObjectId _id, String courseNumber, String courseTitle, String[] disciplines) {
+    public Course(ObjectId _id, String courseNumber, String courseTitle, String[] disciplines, int sections) {
         this._id = _id;
         this.courseNumber = courseNumber;
         this.courseTitle = courseTitle;
         this.disciplines = disciplines;
+        this.sections = sections;
     }
 
     public Course(int javaId, String courseNumber, String courseTitle, String[] disciplines) {
@@ -81,6 +83,10 @@ public class Course {
                 String.format("javaId: %d, id: %s, CRN: %s, %s, disciplines: (%s)", this.getJavaId(), this.idToString(),
                         this.getCourseNumber(),
                         this.getCourseTitle(), this.dString()));
+    }
+
+    public int getSections() {
+        return this.sections;
     }
 
 }

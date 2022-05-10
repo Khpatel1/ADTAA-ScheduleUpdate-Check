@@ -16,23 +16,43 @@ import com.mongodb.internal.connection.Time;
 
 import org.bson.Document;
 
-/**
- * Hello world!
- *
- */
-// public class App implements HttpFunction {
-public class App {
-    // public void service(HttpRequest request, HttpResponse response) throws
-    // Exception {
-    public static void main(String[] args) {
+public class App implements HttpFunction {
+    public void service(HttpRequest request, HttpResponse response) throws Exception {
+        // public static void main(String[] args) {
         DBconnection.db_errors.deleteMany(new Document());
         Gson gson = new Gson();
         ArrayList<Collision> errors = initTimetable();
-        for (Collision er : errors) {
-            String json = gson.toJson(er);
+        ArrayList<String> errStr = new ArrayList<String>();
+        for (Collision c : errors) {
+            errStr.add(c.getCollision());
+        }
+        errStr = removeDuplicates(errStr);
+
+        for (String er : errStr) {
+            String json = gson.toJson(new Collision(er));
             Document doc = Document.parse(json);
             DBconnection.db_errors.insertOne(doc);
         }
+    }
+
+    public static ArrayList<String> removeDuplicates(ArrayList<String> list) {
+
+        // Create a new ArrayList
+        ArrayList<String> newList = new ArrayList<String>();
+
+        // Traverse through the first list
+        for (String element : list) {
+
+            // If this element is not present in newList
+            // then add it
+            if (!newList.contains(element)) {
+
+                newList.add(element);
+            }
+        }
+
+        // return the new list
+        return newList;
     }
 
     public static ArrayList<Collision> initTimetable() {
@@ -46,8 +66,19 @@ public class App {
         Timetable tb = new Timetable();
 
         // add professors to timetable
+        int profMax = 0;
         for (Professor p1 : profs) {
             tb.addProfessor(p1);
+            profMax += p1.getMaxClasses();
+        }
+
+        int numSections = 0;
+        for (Course c1 : courses) {
+            numSections += c1.getSections();
+        }
+        if (numSections > profMax) {
+            errors.add(new Collision(
+                    String.format("There are %d sections and instructor max classes sum to %d", numSections, profMax)));
         }
 
         // add modules to timetable
@@ -89,8 +120,9 @@ public class App {
                         if (classATS == classBTS) {
                             errors.add(new Collision(
                                     String.format("%s has 2 sections with overlaping timeslots: %s and %s",
-                                            tb.getModule(classAMID).getModuleCode(), tb.getTimeslot(classATS),
-                                            tb.getTimeslot(classBTS))));
+                                            tb.getModule(classAMID).getModuleCode(),
+                                            tb.getTimeslot(classATS).getTimeslot(),
+                                            tb.getTimeslot(classBTS).getTimeslot())));
                         }
                     }
                 }
@@ -130,7 +162,7 @@ public class App {
                         && classA.getTimeslotId() == classB.getTimeslotId()
                         && classA.getClassId() != classB.getClassId()) {
                     errors.add(new Collision(String.format(
-                            "%s is scheduled to teach 2 classes at same time: %s and %S at %s",
+                            "%s is scheduled to teach 2 classes at same time: %s and %s at %s",
                             tb.getProfessor(classA.getProfessorId()).getProfessorName(),
                             tb.getModule(classA.getModuleId()).getModuleCode(),
                             tb.getModule(classB.getModuleId()).getModuleCode(),
@@ -143,10 +175,8 @@ public class App {
         for (int i = 0; i < profs.length; i++) {
             int maxLimit = profs[i].getMaxClasses();
             int currentAssigned = profCounts.get(profs[i].getProfessorId());
-            // System.out.println(String.format("%s, max: %d, assigned: %d",
-            // profs[i].getProfessorName(), maxLimit, currentAssigned )) ;
             if (currentAssigned > maxLimit) {
-                errors.add(new Collision(String.format("%s has a max of %, but is assigned % classes",
+                errors.add(new Collision(String.format("%s has a max of %d, but is assigned %d classes",
                         profs[i].getProfessorName(), profs[i].getMaxClasses(), profs[i].getNumAssigned())));
             }
 
@@ -174,8 +204,6 @@ public class App {
                 int mID = getModuleIdfromCT(schedules[i].getCrn(), modules);
                 int pID = findProfId(schedules[i].getInstructors()[j], profs);
                 int tsID = findTimeslotId(schedules[i].getScheduledTimes()[j], timeslots);
-                System.out.println(
-                        String.format("ClassID: %d, ModuleID: %d, profID: %d, TSID: %d", classID, mID, pID, tsID));
                 classes[classID] = new Class();
                 classes[classID].classId = classID;
                 classes[classID].moduleId = mID;
@@ -212,7 +240,6 @@ public class App {
                 return i;
             }
         }
-        System.out.println(String.format("%s not found in modules", ct));
         return -1;
     }
 
